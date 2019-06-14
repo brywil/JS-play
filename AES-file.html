@@ -1,0 +1,289 @@
+<div class="d-flex flex-row flex-wrap">
+
+<div id="AES_Encrypt" class="playtile">
+  <div class="tile_title text-center">AES Encrypt File</div>
+  <div>
+    AES Passphrase: <input id="encrypt_pass" class="key" type="password" size=35
+  value="Password" onchange="measurekey(this)">
+  <input id="show_encrypt_pass" type="checkbox" onclick="togglePW(getElementById('encrypt_pass'))"><br>
+AES Mode: <select id="encrypt_mode" size="1">
+  <option>CBC</option>
+  <option>CFB</option>
+  <option>CTR</option>
+  <option>OFB</option>
+  <option>ECB</option>
+</select>
+    <div id="holder" class="d-flex justify-content-center">
+    <div id="busy" class="loader" style="display:none;"></div>
+    <div id="hasher_tip" style="display:block;">Drop a file here to encrypt.</div>
+  </div>
+<!-- The button used to copy the text -->
+<a href="#" class="button" onclick="get_ciphertext()">Copy</a>
+  <div class="row">
+    <div class="col-2">file:</div> 
+    <div class="col" id="filename">none</div>
+  </div >
+  <div class="row">
+    <div class="col-2">mime: </div>
+    <div class="col" id="mimetype">none</div>
+  </div >
+  <div class="row">
+    <div class="col-2">size: </div>
+    <div class="col" id="filesize">0</div> 
+    <div class="col-2"> bytes </div>
+  </div >
+
+  </div>
+  
+  
+    <div>Plaintext:</div> 
+        <div class="hash" id="encrypt_plaintext" style="overflow-y: scroll; max-height: 200px;"></div>
+  <div>
+    <div>sha256: </div>
+    <div class="hash" id="sha256sum"></div>
+  </div>    
+<div>Ciphertext:</div> 
+        <div class="hash" id="encrypt_port" style="overflow-y: scroll; max-height: 200px;"></div>
+  <div>
+    <div>sha256: </div>
+    <div class="hash" id="cipher_sha256sum"></div>
+  </div> 
+
+
+
+</div>
+  
+<div id="AES_Decrypt" class="playtile">
+  <div class="tile_title text-center">AES Decrypt File</div>
+  <div>
+    AES Passphrase: <input id="decrypt_pass" class="key" type="password" size=35
+  value="Password" onchange="measurekey(this)">
+  <input id="show_decrypt_pass" type="checkbox" onclick="togglePW(getElementById('decrypt_pass'))"><br>
+AES Mode: <select id="decrypt_mode" size="1">
+  <option>CBC</option>
+  <option>CFB</option>
+  <option>CTR</option>
+  <option>OFB</option>
+  <option>ECB</option>
+</select>
+<a class="button" id="decrypt" href="#" onclick="aes_decrypt(getElementById('decrypt_pass'),
+                                  getElementById('decrypt_port'),
+                                  getElementById('decrypt_plaintext'),
+                                  getElementById('decrypt_mode'))">
+      Decrypt
+    </a>
+<a class="button" id="download" download="" href="#"> Download</a><br>
+    Ciphertext:<textarea class="hash" id="decrypt_port" style="overflow-y: scroll; height: 200px;"
+            onchange="check_hash(getElementById('decrypt_port'))"></textarea>
+
+  </div>
+ 
+      <div class="col"></div>
+    <div>
+    <div>sha256: </div>
+    <div class="hash" id="decrypt_cipher_sha256sum"></div>
+  </div>
+    
+    <div>Plaintext:</div>
+    <div class="hash" id="decrypt_plaintext" style="overflow-y: scroll; height: 200px;"></div>
+    <div>
+    <div>sha256: </div>
+    <div class="hash" id="decrypt_sha256sum"></div>
+    
+  </div>
+</div>
+</div>
+
+
+  <script type="application/javascript">
+	function togglePW(x) {
+  if (x.type === "password") {
+    x.type = "text";
+  } else {
+    x.type = "password";
+  }
+}
+
+function get_ciphertext(){
+  var source = document.getElementById('encrypt_port');
+  var range = document.createRange();
+  range.selectNodeContents(source);
+  window.getSelection().addRange(range);
+  try {
+    var successful = document.execCommand('copy');
+    var msg = successful ? 'successful' : 'unsuccessful';
+    console.log('Copying text command was ' + msg);
+  } catch (err) {
+    console.log('Oops, unable to copy');
+  }
+}
+
+function measurekey(keyinput){
+  var length = keyinput.value.length;
+  if (length != 64 && length != 48 && length != 32) {
+    keyinput.style.color = "red";
+    
+  }
+  else {
+    keyinput.style.color = "inherit";
+  }
+}
+
+    function get_mode(mode){
+      switch(mode) {
+      case "CFB":
+  	    return CryptoJS.mode.CFB;
+ 	  case "CTR":
+ 	    return CryptoJS.mode.CTR;
+	  case "OFB":
+ 	    return CryptoJS.mode.OFB;
+	  case "ECB":
+	    return CryptoJS.mode.ECB;
+	  default:
+    	return CryptoJS.mode.CBC;
+	  }
+    }
+
+    function aes_encrypt(pass,PT,port,mode){
+      var plaintext = PT.value;
+      var epass = pass.value;
+      var emode = get_mode(mode.value);
+      var encrypted = CryptoJS.AES.encrypt(plaintext, epass, {mode: emode});
+      port.innerHTML = encrypted.toString();
+    }
+
+    function check_hash(port){
+      var dec = port.value;
+      var sha256 = CryptoJS.SHA256(dec).toString();
+      document.getElementById('decrypt_cipher_sha256sum').innerHTML = sha256;
+    }
+
+    function aes_decrypt(pass,port,PT,mode){
+      var dec = port.value;
+      var epass = pass.value;
+      var emode = get_mode(mode.value);
+      var decrypted = CryptoJS.AES.decrypt(dec, epass, {mode: emode});
+      binary = decrypted.toString(CryptoJS.enc.Utf8);
+      var binaryBase64 = CryptoJS.enc.Base64.parse(binary);
+      var sha256 = CryptoJS.SHA256(binaryBase64).toString();
+      document.getElementById('decrypt_sha256sum').innerHTML = sha256;
+      PT.innerHTML = binary;
+      var filename = binary.split(',')[0].split(':')[1];
+      var data = binary.split(',')[1] + "," + binary.split(',')[2];
+
+      document.getElementById('download').download=filename;
+      document.getElementById('download').href=data;
+      
+    }
+
+      var randomString = function(length) {
+    var text = "";
+    var possible = "abcdef0123456789";
+    for(var i = 0; i < length; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+
+    var hex = CryptoJS.enc.Hex.parse(text);
+      //Max length is 121 characters
+      var sha512 = CryptoJS.SHA512(hex).toString().substring(7, (length+7));
+      
+      //alert(text);
+      //alert(sha512);
+      return sha512;
+
+    }
+       var holder = document.getElementById('holder');
+holder.ondragover = function() {
+  return false;
+};
+holder.ondragend = function() {
+  return false;
+};
+      holder.ondrop = function(event) {
+  event.preventDefault();
+  
+  var file = event.dataTransfer.files[0];
+  
+  document.getElementById('busy').style = "display:block;"
+  document.getElementById('hasher_tip').style = "display:none;"
+  document.getElementById('filename').innerHTML = file.name;
+  document.getElementById('mimetype').innerHTML = file.type;
+  document.getElementById('filesize').innerHTML = file.size;
+  document.getElementById('encrypt_plaintext').innerHTML = "";  
+  document.getElementById('sha256sum').innerHTML = "0000000000000000000000000000000000000000000000000000000000000000";
+
+
+  var reader = new FileReader();
+
+  reader.onload = function(event) {
+    
+    var plaintext = "file:"+file.name+","+event.target.result;
+    //var base64String = event.target.result;
+    var binary = CryptoJS.enc.Base64.parse(plaintext);
+    
+    console.log(file.name);
+    console.log(file.type);
+    console.log(file.size);
+    
+    var sha256 = CryptoJS.SHA256(binary).toString();
+    document.getElementById('sha256sum').innerHTML = sha256;
+    document.getElementById('encrypt_plaintext').innerHTML = plaintext;
+    document.getElementById('busy').style = "display:none;"
+    document.getElementById('hasher_tip').style = "display:block;"
+                                  
+      var epass = document.getElementById('encrypt_pass').value;
+      var emode = get_mode(document.getElementById('encrypt_mode').value);
+      var encrypted = CryptoJS.AES.encrypt(plaintext, epass, {mode: emode});
+      var encrypted_port = encrypted.toString();
+      var cipher_sha256 = CryptoJS.SHA256(encrypted_port).toString();
+      document.getElementById('cipher_sha256sum').innerHTML = cipher_sha256;
+      document.getElementById('encrypt_port').innerHTML = encrypted_port;
+      
+  };
+  reader.readAsDataURL(file);
+};
+      
+    $(document).ready(function(){
+      var pass = randomString(20);
+      
+      document.getElementById('encrypt_pass').value = pass;
+      document.getElementById('decrypt_pass').value = pass;
+      
+      
+    })
+  </script>
+
+<style type="text/css">
+  .tile_title { margin-bottom:8px; line-height: 2em; font-size: 1.25rem; 
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.15);}
+  .thumb { height: 75px; border: 1px solid #000; margin: 10px 5px 0 0; }
+  input, button { margin: 5px; }
+  button { width: 100px; }
+  .playtile { padding: .5rem!important; 
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.15);  border: 1px solid #ccc; 
+    padding:5px; margin:5px; width:40em; min-width:25em; min-height:28em; }
+  #holder { border: 10px dashed #ccc;  height: 5em; padding: 10px; }
+  #holder.hover { border: 10px dashed #333; }
+  .hash {overflow-wrap: break-word; box-shadow: inset 0 0 5px rgba(155,0,0,0.15); padding-left:5px;}
+  #byte_content { margin: 5px 0; max-height: 100px; overflow-y: auto; overflow-x: hidden; }
+  #byte_range { margin-top: 5px; }
+  .loader {
+    border: 0.5em solid #f3f3f3;
+  	border-radius: 50%;
+  	border-top: 0.5em solid #3498db;
+  	width: 2.75em;
+  	height: 2.75em;
+  	-webkit-animation: spin 2s linear infinite; /* Safari */
+  	animation: spin 2s linear infinite;
+    
+    /* Safari */
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); } }
+
+@keyframes spin { 
+  0% { transform: rotate(0deg); } 
+  100% { transform: rotate(360deg); } }
+}  
+
+</style>
