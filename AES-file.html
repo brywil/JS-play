@@ -7,11 +7,7 @@
   value="Password" onchange="measurekey(this)">
   <input id="show_encrypt_pass" type="checkbox" onclick="togglePW(getElementById('encrypt_pass'))"><br>
 AES Mode: <select id="encrypt_mode" size="1">
-  <option>CBC</option>
-  <option>CFB</option>
-  <option>CTR</option>
-  <option>OFB</option>
-  <option>ECB</option>
+  <option>Webcrypto-GCM</option>
 </select>
     <div id="holder" class="d-flex justify-content-center">
     <div id="busy" class="loader" style="display:none;"></div>
@@ -44,10 +40,7 @@ AES Mode: <select id="encrypt_mode" size="1">
   </div>    
 <div>Ciphertext:</div> 
         <div class="hash" id="encrypt_port" style="overflow-y: scroll; max-height: 200px;"></div>
-  <div>
-    <div>sha256: </div>
-    <div class="hash" id="cipher_sha256sum"></div>
-  </div> 
+
 
 
 
@@ -60,11 +53,7 @@ AES Mode: <select id="encrypt_mode" size="1">
   value="Password" onchange="measurekey(this)">
   <input id="show_decrypt_pass" type="checkbox" onclick="togglePW(getElementById('decrypt_pass'))"><br>
 AES Mode: <select id="decrypt_mode" size="1">
-  <option>CBC</option>
-  <option>CFB</option>
-  <option>CTR</option>
-  <option>OFB</option>
-  <option>ECB</option>
+  <option>Webcrypto-GCM</option>
 </select>
 <a class="button" id="decrypt" href="#" onclick="aes_decrypt(getElementById('decrypt_pass'),
                                   getElementById('decrypt_port'),
@@ -73,16 +62,12 @@ AES Mode: <select id="decrypt_mode" size="1">
       Decrypt
     </a>
 <a class="button" id="download" download="" href="#"> Download</a><br>
-    Ciphertext:<textarea class="hash" id="decrypt_port" style="overflow-y: scroll; height: 200px;"
-            onchange="check_hash(getElementById('decrypt_port'))"></textarea>
+    Ciphertext:<textarea class="hash" id="decrypt_port" style="overflow-y: scroll; height: 200px;"></textarea>
 
   </div>
  
       <div class="col"></div>
-    <div>
-    <div>sha256: </div>
-    <div class="hash" id="decrypt_cipher_sha256sum"></div>
-  </div>
+
     
     <div>Plaintext:</div>
     <div class="hash" id="decrypt_plaintext" style="overflow-y: scroll; height: 200px;"></div>
@@ -96,7 +81,7 @@ AES Mode: <select id="decrypt_mode" size="1">
 
 
   <script type="application/javascript">
-	function togglePW(x) {
+function togglePW(x) {
   if (x.type === "password") {
     x.type = "text";
   } else {
@@ -118,6 +103,47 @@ function get_ciphertext(){
   }
 }
 
+function arrayBufferToBase64(ab){
+
+    var dView = new Uint8Array(ab);   //Get a byte view        
+
+    var arr = Array.prototype.slice.call(dView); //Create a normal array        
+
+    var arr1 = arr.map(function(item){        
+      return String.fromCharCode(item);    //Convert
+    });
+
+    return window.btoa(arr1.join(''));   //Form a string
+
+}
+
+function arrayBufferToHexString(buffer) {
+  const byteArray = new Uint8Array(buffer);
+
+  const hexCodes = [...byteArray].map(value => {
+    const hexCode = value.toString(16);
+    const paddedHexCode = hexCode.padStart(2, '0');
+    return paddedHexCode;
+  });
+
+  return hexCodes.join('');
+}
+
+function base64ToArrayBuffer(base64) {
+    var binary_string =  atob(base64);
+    var len = binary_string.length;
+    var bytes = new Uint8Array( len );
+    for (var i = 0; i < len; i++)        {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+function base64ToArray(b64encoded){ 
+  return new Uint8Array(atob(b64encoded).split("").map(function(c) {
+    return c.charCodeAt(0); }));
+}
+
 function measurekey(keyinput){
   var length = keyinput.value.length;
   if (length != 64 && length != 48 && length != 32) {
@@ -129,7 +155,7 @@ function measurekey(keyinput){
   }
 }
 
-    function get_mode(mode){
+function get_mode(mode){
       switch(mode) {
       case "CFB":
   	    return CryptoJS.mode.CFB;
@@ -139,44 +165,107 @@ function measurekey(keyinput){
  	    return CryptoJS.mode.OFB;
 	  case "ECB":
 	    return CryptoJS.mode.ECB;
+      case "Webcrypto-GCM":
+	    return "Webcrypto-GCM";
 	  default:
     	return CryptoJS.mode.CBC;
 	  }
     }
 
-    function aes_encrypt(pass,PT,port,mode){
-      var plaintext = PT.value;
-      var epass = pass.value;
-      var emode = get_mode(mode.value);
-      var encrypted = CryptoJS.AES.encrypt(plaintext, epass, {mode: emode});
-      port.innerHTML = encrypted.toString();
-    }
+async function getKeyMaterial(epass) {
+  let password = epass;
+  let enc = new TextEncoder();
+  return window.crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    {name: "PBKDF2"},
+    false,
+    ["deriveBits", "deriveKey"]
+  );
+}
 
-    function check_hash(port){
+async function encrypt(password, plaintext, salt, iv) {
+  let keyMaterial = await getKeyMaterial(password);
+  let key = await window.crypto.subtle.deriveKey(
+    {
+      "name": "PBKDF2",
+      salt: salt,
+      "iterations": 100000,
+      "hash": "SHA-256"
+    },
+    keyMaterial,
+    { "name": "AES-GCM", "length": 256},
+    true,
+    [ "encrypt", "decrypt" ]
+  );
+
+  return window.crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv: iv
+    },
+    key,
+    plaintext
+  );
+}
+
+async function decrypt(password, ciphertext, salt, iv) {
+    let keyMaterial = await getKeyMaterial(password);
+    let key = await window.crypto.subtle.deriveKey(
+    {
+      "name": "PBKDF2",
+      salt: salt,
+      "iterations": 100000,
+      "hash": "SHA-256"
+    },
+    keyMaterial,
+    { "name": "AES-GCM", "length": 256},
+    true,
+    [ "encrypt", "decrypt" ]
+  );
+
+  try {
+      let decrypted = await window.crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: iv
+        },
+        key,
+        ciphertext
+      );
+    return decrypted;
+    } catch (e) {
+      alert("*** Decryption error ***");
+    }
+  }
+
+function check_hash(port){
       var dec = port.value;
       var sha256 = CryptoJS.SHA256(dec).toString();
       document.getElementById('decrypt_cipher_sha256sum').innerHTML = sha256;
     }
 
-    function aes_decrypt(pass,port,PT,mode){
+async function aes_decrypt(pass,port,PT,mode){
       var dec = port.value;
+      let salt = await base64ToArray(dec.slice(0,24));
+      let iv = await base64ToArray(dec.slice(25,41));
+      let ciphertext = await base64ToArrayBuffer(dec.slice(42));
       var epass = pass.value;
       var emode = get_mode(mode.value);
-      var decrypted = CryptoJS.AES.decrypt(dec, epass, {mode: emode});
-      binary = decrypted.toString(CryptoJS.enc.Utf8);
-      var binaryBase64 = CryptoJS.enc.Base64.parse(binary);
-      var sha256 = CryptoJS.SHA256(binaryBase64).toString();
-      document.getElementById('decrypt_sha256sum').innerHTML = sha256;
-      PT.innerHTML = binary;
-      var filename = binary.split(',')[0].split(':')[1];
-      var data = binary.split(',')[1] + "," + binary.split(',')[2];
+      let dec_buffer = await decrypt(epass, ciphertext, salt, iv);
+      let sha256 = await window.crypto.subtle.digest('SHA-256', dec_buffer);
+      document.getElementById('decrypt_sha256sum').innerHTML = await arrayBufferToHexString(sha256);
+      let decrypted = atob(arrayBufferToBase64(dec_buffer));
+      PT.innerHTML = decrypted;
+      var filename = decrypted.split(',')[0].split(':')[1];
+      var data = decrypted.split(',')[1] + "," + decrypted.split(',')[2];
 
       document.getElementById('download').download=filename;
       document.getElementById('download').href=data;
       
     }
 
-      var randomString = function(length) {
+var randomString = function(length) {
     var text = "";
     var possible = "abcdef0123456789";
     for(var i = 0; i < length; i++) {
@@ -192,55 +281,62 @@ function measurekey(keyinput){
       return sha512;
 
     }
-       var holder = document.getElementById('holder');
+var holder = document.getElementById('holder');
 holder.ondragover = function() {
   return false;
 };
 holder.ondragend = function() {
   return false;
 };
-      holder.ondrop = function(event) {
-  event.preventDefault();
-  
-  var file = event.dataTransfer.files[0];
-  
-  document.getElementById('busy').style = "display:block;"
-  document.getElementById('hasher_tip').style = "display:none;"
-  document.getElementById('filename').innerHTML = file.name;
-  document.getElementById('mimetype').innerHTML = file.type;
-  document.getElementById('filesize').innerHTML = file.size;
-  document.getElementById('encrypt_plaintext').innerHTML = "";  
-  document.getElementById('sha256sum').innerHTML = "0000000000000000000000000000000000000000000000000000000000000000";
+holder.ondrop = function(event) {
+    //AES Encrypt dropped file
+    event.preventDefault();
+
+    var file = event.dataTransfer.files[0];
+
+    document.getElementById('busy').style = "display:block;"
+    document.getElementById('hasher_tip').style = "display:none;"
+    document.getElementById('filename').innerHTML = file.name;
+    document.getElementById('mimetype').innerHTML = file.type;
+    document.getElementById('filesize').innerHTML = file.size;
+    document.getElementById('encrypt_plaintext').innerHTML = "";  
+    document.getElementById('sha256sum').innerHTML = "0000000000000000000000000000000000000000000000000000000000000000";
 
 
-  var reader = new FileReader();
+    var reader = new FileReader();
 
-  reader.onload = function(event) {
-    
-    var plaintext = "file:"+file.name+","+event.target.result;
-    //var base64String = event.target.result;
-    var binary = CryptoJS.enc.Base64.parse(plaintext);
-    
-    console.log(file.name);
-    console.log(file.type);
-    console.log(file.size);
-    
-    var sha256 = CryptoJS.SHA256(binary).toString();
-    document.getElementById('sha256sum').innerHTML = sha256;
-    document.getElementById('encrypt_plaintext').innerHTML = plaintext;
-    document.getElementById('busy').style = "display:none;"
-    document.getElementById('hasher_tip').style = "display:block;"
-                                  
+    reader.onload = async function(event) {
+
+      var plaintext = "file:"+file.name+","+event.target.result;
+      //var base64String = event.target.result;
+      var binary = CryptoJS.enc.Base64.parse(plaintext);
+
+      console.log(file.name);
+      console.log(file.type);
+      console.log(file.size);
+
+      document.getElementById('encrypt_plaintext').innerHTML = plaintext;
+      document.getElementById('busy').style = "display:none;"
+      document.getElementById('hasher_tip').style = "display:block;"
+
       var epass = document.getElementById('encrypt_pass').value;
       var emode = get_mode(document.getElementById('encrypt_mode').value);
-      var encrypted = CryptoJS.AES.encrypt(plaintext, epass, {mode: emode});
-      var encrypted_port = encrypted.toString();
-      var cipher_sha256 = CryptoJS.SHA256(encrypted_port).toString();
-      document.getElementById('cipher_sha256sum').innerHTML = cipher_sha256;
-      document.getElementById('encrypt_port').innerHTML = encrypted_port;
+      console.log("Webcrypto GCM");
       
-  };
-  reader.readAsDataURL(file);
+      let salt = window.crypto.getRandomValues(new Uint8Array(16));
+      let iv = window.crypto.getRandomValues(new Uint8Array(12));
+      let enc = new TextEncoder();
+      let encoded_plaintext = await enc.encode(plaintext);
+      let sha256 = await window.crypto.subtle.digest('SHA-256', encoded_plaintext);
+      document.getElementById('sha256sum').innerHTML = await arrayBufferToHexString(sha256);
+      let ciphertext = await encrypt(epass, encoded_plaintext, salt, iv);
+      var ctstring = arrayBufferToBase64(salt)+"<br>"+
+          arrayBufferToBase64(iv)+"<br>"+
+          arrayBufferToBase64(ciphertext);
+      document.getElementById('encrypt_port').innerHTML = ctstring;
+
+    };
+    reader.readAsDataURL(file);
 };
       
     $(document).ready(function(){
@@ -274,7 +370,7 @@ holder.ondragend = function() {
   	width: 2.75em;
   	height: 2.75em;
   	-webkit-animation: spin 2s linear infinite; /* Safari */
-  	animation: spin 2s linear infinite;
+  	animation: spin 2s linear infinite;  }
     
     /* Safari */
 @-webkit-keyframes spin {
