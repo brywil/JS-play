@@ -157,18 +157,10 @@ function measurekey(keyinput){
 
 function get_mode(mode){
       switch(mode) {
-      case "CFB":
-  	    return CryptoJS.mode.CFB;
- 	  case "CTR":
- 	    return CryptoJS.mode.CTR;
-	  case "OFB":
- 	    return CryptoJS.mode.OFB;
-	  case "ECB":
-	    return CryptoJS.mode.ECB;
       case "Webcrypto-GCM":
 	    return "Webcrypto-GCM";
 	  default:
-    	return CryptoJS.mode.CBC;
+    	return "Webcrypto-GCM";
 	  }
     }
 
@@ -239,12 +231,6 @@ async function decrypt(password, ciphertext, salt, iv) {
     }
   }
 
-function check_hash(port){
-      var dec = port.value;
-      var sha256 = CryptoJS.SHA256(dec).toString();
-      document.getElementById('decrypt_cipher_sha256sum').innerHTML = sha256;
-    }
-
 async function aes_decrypt(pass,port,PT,mode){
       var dec = port.value;
       let salt = await base64ToArray(dec.slice(0,24));
@@ -265,22 +251,21 @@ async function aes_decrypt(pass,port,PT,mode){
       
     }
 
-var randomString = function(length) {
+var randomString = async function(length) {
     var text = "";
     var possible = "abcdef0123456789";
     for(var i = 0; i < length; i++) {
         text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
-
-    var hex = CryptoJS.enc.Hex.parse(text);
-      //Max length is 121 characters
-      var sha512 = CryptoJS.SHA512(hex).toString().substring(7, (length+7));
-      
-      //alert(text);
-      //alert(sha512);
-      return sha512;
-
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    let sha512buffer = await crypto.subtle.digest('SHA-512', data);
+    var sha512 = arrayBufferToHexString(sha512buffer).substring(7, (length+7));
+    return sha512;
     }
+
+
+
 var holder = document.getElementById('holder');
 holder.ondragover = function() {
   return false;
@@ -307,10 +292,8 @@ holder.ondrop = function(event) {
 
     reader.onload = async function(event) {
 
-      var plaintext = "file:"+file.name+","+event.target.result;
-      //var base64String = event.target.result;
-      var binary = CryptoJS.enc.Base64.parse(plaintext);
-
+      var plaintext = "file:"+file.name+","+event.target.result;  
+      
       console.log(file.name);
       console.log(file.type);
       console.log(file.size);
@@ -339,11 +322,15 @@ holder.ondrop = function(event) {
     reader.readAsDataURL(file);
 };
       
-    $(document).ready(function(){
-      var pass = randomString(20);
+    $(document).ready(async function(){
+      let pass = await randomString(20);
       
       document.getElementById('encrypt_pass').value = pass;
       document.getElementById('decrypt_pass').value = pass;
+      
+      
+      let toast = await randomString(32);
+		alert(toast);
       
       
     })
