@@ -1,5 +1,13 @@
-<div class="d-flex flex-row flex-wrap">
+<style> .Broken_IE11{ display:none; }</style>
 
+<div class="d-flex flex-row flex-wrap justify-content-center">
+<div class="container Broken_IE11">
+  <div class="col-sm Broken_IE11">&nbsp;</div>
+  <div class="col-md Broken_IE11">
+    <h4 style="text-align: center; width: 100%;">I'm sorry, but Internet Explorer/Edge doesn't support the <a href="https://www.w3.org/TR/WebCryptoAPI/">WebCrypto API.</a>
+    </h4>
+  <div class="col-sm Broken_IE11">&nbsp;</div>
+</div>
 <div id="AES_Encrypt" class="playtile">
   <div class="tile_title text-center">AES Encrypt File</div>
   <div>
@@ -80,6 +88,7 @@ AES Mode: <select id="decrypt_mode" size="1">
 </div>
 
 
+
   <script type="application/javascript">
 function togglePW(x) {
   if (x.type === "password") {
@@ -103,29 +112,39 @@ function get_ciphertext(){
   }
 }
 
+function hex_to_ascii(hex){
+	var str = '';
+    var remainder = 0;
+    var minprint = 33;
+    var maxprint = 126;
+    var printlen = maxprint - minprint;
+	for (var n = 0; n < hex.length; n += 2) {
+        var code = (remainder + parseInt(hex.substr(n, 2), 16)) % printlen + minprint;
+        remainder = code - minprint;
+        // console.log(code);
+        var this_char = String.fromCharCode(code);
+        // console.log(this_char);
+		str += this_char;
+	}
+	return str;
+}
+
 function arrayBufferToBase64(ab){
-
     var dView = new Uint8Array(ab);   //Get a byte view        
-
     var arr = Array.prototype.slice.call(dView); //Create a normal array        
-
     var arr1 = arr.map(function(item){        
       return String.fromCharCode(item);    //Convert
     });
-
     return window.btoa(arr1.join(''));   //Form a string
-
 }
 
 function arrayBufferToHexString(buffer) {
   const byteArray = new Uint8Array(buffer);
-
   const hexCodes = [...byteArray].map(value => {
     const hexCode = value.toString(16);
     const paddedHexCode = hexCode.padStart(2, '0');
     return paddedHexCode;
   });
-
   return hexCodes.join('');
 }
 
@@ -148,7 +167,6 @@ function measurekey(keyinput){
   var length = keyinput.value.length;
   if (length != 64 && length != 48 && length != 32) {
     keyinput.style.color = "red";
-    
   }
   else {
     keyinput.style.color = "inherit";
@@ -190,7 +208,6 @@ async function encrypt(password, plaintext, salt, iv) {
     true,
     [ "encrypt", "decrypt" ]
   );
-
   return window.crypto.subtle.encrypt(
     {
       name: "AES-GCM",
@@ -215,7 +232,6 @@ async function decrypt(password, ciphertext, salt, iv) {
     true,
     [ "encrypt", "decrypt" ]
   );
-
   try {
       let decrypted = await window.crypto.subtle.decrypt(
         {
@@ -245,7 +261,6 @@ async function aes_decrypt(pass,port,PT,mode){
       PT.innerHTML = decrypted;
       var filename = decrypted.split(',')[0].split(':')[1];
       var data = decrypted.split(',')[1] + "," + decrypted.split(',')[2];
-
       document.getElementById('download').download=filename;
       document.getElementById('download').href=data;
       
@@ -264,15 +279,38 @@ var randomString = async function(length) {
     return sha512;
     }
 
-
+var randomBuffer = async function() {
+    var text = "";
+    var possible = "abcdef0123456789";
+    var rlength = 4096;
+    for(var i = 0; i < rlength; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    
+    var req = new XMLHttpRequest();
+    req.open('GET', document.location, false);
+    req.send(null);
+	var headers = req.getAllResponseHeaders();
+    text += headers;
+    var d = new Date();
+    var n = d.getTime().toString();
+    text += n;
+    
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    let sha512buffer = await crypto.subtle.digest('SHA-512', data);
+    return sha512buffer;
+}
 
 var holder = document.getElementById('holder');
 holder.ondragover = function() {
   return false;
 };
+
 holder.ondragend = function() {
   return false;
 };
+
 holder.ondrop = function(event) {
     //AES Encrypt dropped file
     event.preventDefault();
@@ -286,12 +324,10 @@ holder.ondrop = function(event) {
     document.getElementById('filesize').innerHTML = file.size;
     document.getElementById('encrypt_plaintext').innerHTML = "";  
     document.getElementById('sha256sum').innerHTML = "0000000000000000000000000000000000000000000000000000000000000000";
-
-
+  
     var reader = new FileReader();
 
     reader.onload = async function(event) {
-
       var plaintext = "file:"+file.name+","+event.target.result;  
       
       console.log(file.name);
@@ -323,15 +359,17 @@ holder.ondrop = function(event) {
 };
       
     $(document).ready(async function(){
-      let pass = await randomString(20);
+      let mybuf = await randomBuffer();
+      let sha512 = await arrayBufferToHexString(mybuf);
+      //alert(pass);
+      var pass = hex_to_ascii(sha512);
+      var pass_pass = pass + pass;
       
-      document.getElementById('encrypt_pass').value = pass;
-      document.getElementById('decrypt_pass').value = pass;
+      start_index = Math.floor(Math.random() * pass.length);
+      var string20 = pass_pass.substring(start_index, (start_index+20));
       
-      
-      let toast = await randomString(32);
-		alert(toast);
-      
+      document.getElementById('encrypt_pass').value = string20;
+      document.getElementById('decrypt_pass').value = string20;
       
     })
   </script>
@@ -367,6 +405,13 @@ holder.ondrop = function(event) {
 @keyframes spin { 
   0% { transform: rotate(0deg); } 
   100% { transform: rotate(360deg); } }
-}  
+
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+   /* IE10+ specific styles go here */
+  .playtile{filter: alpha(opacity=25);
+    zoom: 1;  /* Fix for IE7 */ 
+     display:none;}
+  .Broken_IE11{ display:inline-block; }
+}
 
 </style>
