@@ -1,0 +1,181 @@
+<div class="playtile">
+        	<div class="tile_title text-center"> Random strings </div>
+            Hexadecimal String 
+	      	<div id="random_hex" class="hash">0123456789ABCDEF</div>
+            32 characters
+            <div id="char_32" class="hash"></div>
+            20 characters
+            <div id="char_20" class="hash"></div>
+            Printable
+            <div id="printable" class="hash"></div>
+            32 characters
+            <div id="printable_32" class="hash"></div>
+            20 characters
+            <div id="printable_20" class="hash"></div>
+            <div style="width:25em;margin-top:15px;">
+            <div class="tile_title text-center"> SHA-512 Hex String Histogram </div>
+            <div id="histogram"></div>
+            </div>
+        </div>
+
+<script>
+var randomBuffer = async function() {
+    var text = "";
+    var possible = "abcdef0123456789";
+    var rlength = 4096;
+    for(var i = 0; i < rlength; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    
+    var req = new XMLHttpRequest();
+    req.open('GET', document.location, false);
+    req.send(null);
+	var headers = req.getAllResponseHeaders().toLowerCase();
+    text += headers;
+    var d = new Date();
+    var n = d.getTime().toString();
+    text += n;
+    console.log(text);
+    
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    let sha512buffer = await crypto.subtle.digest('SHA-512', data);
+    return sha512buffer;
+}
+
+function arrayBufferToHexString(buffer) {
+  const byteArray = new Uint8Array(buffer);
+
+  const hexCodes = [...byteArray].map(value => {
+    const hexCode = value.toString(16);
+    const paddedHexCode = hexCode.padStart(2, '0');
+    return paddedHexCode;
+  });
+
+  return hexCodes.join('');
+}
+function arrayBufferToBase64(ab){
+    var dView = new Uint8Array(ab);   //Get a byte view        
+    var arr = Array.prototype.slice.call(dView); //Create a normal array        
+    var arr1 = arr.map(function(item){        
+      return String.fromCharCode(item);    //Convert
+    });
+    return window.btoa(arr1.join(''));   //Form a string
+}
+function countChar(string){
+    var hex_digits = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'];
+  	var i;
+  	var digit_count = []
+    for (i = 0; i < 16; i++) { 
+     	digit_count.push(string.split(hex_digits[i]).length-1);
+	}
+    // alert(digit_count);
+    return(digit_count);
+}
+function buildHexHist(string){
+    var hex_digits = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'];
+    var counts = countChar(string);
+    var i;
+    for (i = 0; i < 16; i++) {
+        var column = document.createElement("div");
+        column.style.display = "inline-block";
+        column.style.height = "75px";
+        document.getElementById("histogram").appendChild(column);
+
+		var div = document.createElement("div");
+		div.style.width = "10px";
+		div.style.height = counts[i].toString()+"em";
+		div.style.background = "lightblue";
+        div.style.margin = "2px";
+        div.style.padding = "10px";
+        div.class = "text-center";
+		// div.style.color = "white";		
+        column.appendChild(div);
+      
+        var label = document.createElement("div");
+        label.innerHTML = hex_digits[i];
+        label.style.width = "10px";
+        label.style.textAlign = "center";
+        label.style.marginLeft = "7px";
+      	column.appendChild(label);
+    }
+}
+function hex_to_ascii(hex){
+	var str = '';
+    var remainder = 0;
+    var minprint = 33;
+    var maxprint = 126;
+    var printlen = maxprint - minprint;
+	for (var n = 0; n < hex.length; n += 2) {
+        var code = (remainder + parseInt(hex.substr(n, 2), 16)) % printlen + minprint;
+        remainder = code - minprint;
+         console.log(code);
+        var this_char = String.fromCharCode(code);
+         console.log(this_char);
+		str += this_char;
+	}
+	return str;
+}
+function htmlEncode(value) {
+    return $('<div/>').text(value).html();
+}
+    $(document).ready(async function(){
+      let my_rand = await randomBuffer();
+      var toast = arrayBufferToHexString(my_rand);
+      // alert(toast);
+      document.getElementById("random_hex").innerHTML = toast;
+      // countChar(toast);
+      var start_index = Math.floor(Math.random() * 128);
+      var toast_toast = toast + toast;
+      var string32 = toast_toast.substring(start_index, (start_index+32));
+      document.getElementById("char_32").innerHTML = string32;
+      start_index = Math.floor(Math.random() * 128);
+      var string20 = toast_toast.substring(start_index, (start_index+20));
+      document.getElementById("char_20").innerHTML = string20;
+      buildHexHist(toast);
+      var all_printable = hex_to_ascii(toast);
+      var chars = all_printable.length;
+      document.getElementById("printable").innerHTML = htmlEncode(all_printable);
+      var print_print = all_printable + all_printable;
+      start_index = Math.floor(Math.random() * chars);
+      var print32 = print_print.substring(start_index, (start_index+32));
+      document.getElementById("printable_32").innerHTML = htmlEncode(print32);
+      start_index = Math.floor(Math.random() * chars);
+      var print20 = print_print.substring(start_index, (start_index+20));
+      document.getElementById("printable_20").innerHTML = htmlEncode(print20);
+    })
+  </script>
+
+<style type="text/css">
+  .tile_title { margin-bottom:8px; line-height: 2em; font-size: 1.25rem; 
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.15);}
+  .thumb { height: 75px; border: 1px solid #000; margin: 10px 5px 0 0; }
+  input, button { margin: 5px; }
+  button { width: 100px; }
+  .playtile { padding: .5rem!important; 
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.15);  border: 1px solid #ccc; 
+    padding:5px; margin:5px; width:100%; }
+  #holder { border: 10px dashed #ccc;  height: 5em; padding: 10px; }
+  #holder.hover { border: 10px dashed #333; }
+  .hash {overflow-wrap: break-word; box-shadow: inset 0 0 5px rgba(155,0,0,0.15); padding-left:5px;}
+  #byte_content { margin: 5px 0; max-height: 100px; overflow-y: auto; overflow-x: hidden; }
+  #byte_range { margin-top: 5px; }
+  .loader {
+    border: 0.5em solid #f3f3f3;
+  	border-radius: 50%;
+  	border-top: 0.5em solid #3498db;
+  	width: 2.75em;
+  	height: 2.75em;
+  	-webkit-animation: spin 2s linear infinite; /* Safari */
+  	animation: spin 2s linear infinite;  }
+    
+    /* Safari */
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); } }
+
+@keyframes spin { 
+  0% { transform: rotate(0deg); } 
+  100% { transform: rotate(360deg); } }
+
+</style>
